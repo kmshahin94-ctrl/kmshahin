@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Student List | Madinatul Uloom Orphanage for the Visually Impaired</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700;800&display=swap" rel="stylesheet">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<style>
+		:root {
+			--ink: #183238;
+			--muted: #687b7e;
+			--paper: #f7f4ed;
+			--white: #fffdf9;
+			--teal: #087f7b;
+			--teal-dark: #075b5a;
+			--coral: #d9654d;
+			--line: #dfe6df;
+			--shadow: 0 18px 45px rgba(25, 62, 59, .1);
+		}
+		* { box-sizing: border-box; }
+		body { margin: 0; color: var(--ink); background: var(--paper); font-family: 'Hind Siliguri', sans-serif; }
+		.page { max-width: 1240px; margin: auto; padding: 28px 22px 60px; }
+		header { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 30px; }
+		.eyebrow { color: var(--teal); font-size: .92rem; font-weight: 700; letter-spacing: .02em; line-height: 1.25; margin: 0 0 2px; }
+		h1, h2, h3 { font-family: 'Noto Serif Bengali', serif; margin: 0; }
+		h1 { font-size: clamp(2rem, 4vw, 3.4rem); line-height: 1.15; }
+		.intro { max-width: 620px; color: var(--muted); font-size: 1.08rem; margin: 12px 0 0; }
+		.count { background: var(--teal); color: white; padding: 10px 17px; border-radius: 4px; font-weight: 700; white-space: nowrap; }
+		.search-box { margin-bottom: 18px; }
+		.search-box input { margin-top: 0; padding: 13px 14px; font-size: 1rem; box-shadow: 0 8px 22px rgba(25, 62, 59, .06); }
+		.layout { display: grid; grid-template-columns: 330px 1fr; gap: 28px; align-items: start; }
+		.panel, .student-card { background: var(--white); border: 1px solid var(--line); box-shadow: var(--shadow); }
+		.panel { padding: 23px; position: sticky; top: 18px; }
+		.panel h2 { font-size: 1.35rem; margin-bottom: 17px; }
+		label { display: block; font-weight: 600; margin-top: 13px; }
+		input, textarea { width: 100%; border: 1px solid #cbd8d3; border-radius: 3px; padding: 10px 11px; margin-top: 5px; color: var(--ink); background: #fff; font: inherit; }
+		textarea { resize: vertical; min-height: 74px; }
+		input:focus, textarea:focus { outline: 2px solid #8bc9c1; border-color: var(--teal); }
+		.hint { color: var(--muted); font-size: .85rem; line-height: 1.35; margin: 4px 0 0; }
+		button { border: 0; border-radius: 3px; cursor: pointer; font: inherit; font-weight: 700; }
+		.primary { width: 100%; background: var(--teal); color: white; padding: 12px; margin-top: 20px; }
+		.primary:hover { background: var(--teal-dark); }
+		.secondary { background: transparent; color: var(--coral); padding: 9px 0; width: 100%; margin-top: 4px; }
+		.cancel-edit { display: none; }
+		.student-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 22px; }
+		.student-card { overflow: hidden; animation: appear .45s ease both; }
+		.gallery { display: grid; grid-template-columns: 1fr; grid-auto-rows: 280px; gap: 4px; background: #edf4ef; }
+		.gallery img { width: 100%; height: 100%; object-fit: contain; display: block; }
+		.card-body { padding: 18px; }
+		.card-top { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+		.card-top h3 { font-size: 1.45rem; line-height: 1.25; }
+		.card-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: end; }
+		.profile-content { display: grid; grid-template-columns: minmax(0, 1fr) 35mm; gap: 18px; align-items: start; margin-top: 15px; }
+		.profile-details { min-width: 0; }
+		.photo-slot { width: 35mm; height: 45mm; border: 2px dashed #9fb4ae; background: #fbfcf9; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); text-align: center; font-size: .72rem; font-weight: 700; line-height: 1.35; }
+		.photo-slot span { display: block; font-size: .65rem; font-weight: 500; }
+		.delete { color: var(--coral); background: #fff1ec; padding: 5px 9px; font-size: .82rem; }
+		.student-pdf { color: var(--teal-dark); background: #e5f3ed; padding: 5px 9px; font-size: .82rem; }
+		.details { border-top: 1px solid var(--line); padding-top: 11px; }
+		.detail-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; color: var(--muted); }
+		.detail-row strong { color: var(--ink); text-align: right; font-weight: 600; }
+		.story { color: var(--muted); margin: 10px 0 0; line-height: 1.5; white-space: pre-line; }
+		.sponsor { margin-top: 16px; padding: 13px; background: #edf7f1; border-left: 4px solid var(--teal); }
+		.sponsor.pending { background: #fff5e8; border-left-color: #e4a13c; }
+		.sponsor-title { color: var(--teal-dark); font-weight: 700; margin-bottom: 3px; }
+		.pending .sponsor-title { color: #9c671d; }
+		.sponsor p { margin: 2px 0; color: var(--muted); }
+		.sponsor a { color: var(--teal-dark); font-weight: 700; text-decoration: none; }
+		.empty { color: var(--muted); text-align: center; padding: 60px 20px; border: 1px dashed #bbcfc7; background: rgba(255,255,255,.45); }
+		@keyframes appear { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+		@media print {
+			body { background: white; }
+			.page { max-width: none; padding: 0; }
+			.panel, .search-box, .delete, .print-button { display: none; }
+			header { margin-bottom: 18px; }
+			.layout { display: block; }
+			.student-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+			.student-card { box-shadow: none; break-inside: avoid; }
+			body.print-single .student-card:not(.print-target) { display: none; }
+			.student-pdf { display: none; }
+			.gallery { grid-auto-rows: 190px; }
+		}
+		@media (max-width: 780px) { header { display: block; } .count { display: inline-block; margin-top: 17px; } .layout { grid-template-columns: 1fr; } .panel { position: static; } }
+		@media (max-width: 390px) { .profile-content { grid-template-columns: 1fr; } .photo-slot { justify-self: center; } }
+	</style>
+</head>
+<body>
+	<main class="page">
+		<header>
+			<div>
+				<p class="eyebrow">Madinatul Uloom Orphanage for the Visually Impaired</p>
+				<p class="eyebrow">Lillah Boarding Madrasa</p>
+				<h1>Our Students</h1>
+				<p class="intro">Keep each child's profile, educational needs, and sponsor information together to support their learning and future.</p>
+			</div>
+			<div class="count" id="studentCount">0 Students</div>
+		</header>
+
+		<section class="layout">
+			<form class="panel" id="studentForm">
+				<h2 id="formTitle">Add New Student</h2>
+				<label>Student Name *<input name="name" required placeholder="e.g. Md. Rahim Uddin"></label>
+				<label>Age<input name="age" placeholder="e.g. 10 years"></label>
+				<label>Class<input name="className" placeholder="e.g. Grade 4"></label>
+				<label>Address<input name="address" placeholder="Village, Upazila, District"></label>
+				<label>Education and Support Needs<textarea name="story" placeholder="Describe the student's education, family circumstances, or support needs"></textarea></label>
+				<label>Donor Name<input name="donorName" placeholder="Name of the sponsor"></label>
+				<label>Donor Phone Number<input name="donorPhone" type="tel" placeholder="01xxxxxxxxx"></label>
+				<button class="primary" type="submit" id="saveButton">Save Student</button>
+				<button class="secondary cancel-edit" type="button" id="cancelEdit">Cancel Edit</button>
+				<button class="secondary" type="button" id="clearData">Delete All Data</button>
+			</form>
+
+			<section aria-live="polite">
+				<div class="search-box"><input id="searchInput" type="search" placeholder="Search by name or phone number..." aria-label="Search by name or phone number"></div>
+				<div class="student-grid" id="studentList"></div>
+			</section>
+		</section>
+	</main>
+	<script>
+		const storageKey = 'manav-seva-students';
+		const dbName = 'manav-seva-student-db';
+		const dbStore = 'students';
+		const supabaseConfig = {
+			url: 'https://YOUR_PROJECT_ID.supabase.co',
+			anonKey: 'YOUR_ANON_KEY'
+		};
+		const form = document.querySelector('#studentForm');
+		const list = document.querySelector('#studentList');
+		const count = document.querySelector('#studentCount');
+		const searchInput = document.querySelector('#searchInput');
+		let students = [];
+		let editingIndex = null;
+		let db = null;
+		let supabaseClient = null;
+
+		const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+		const normalizeSearch = value => String(value || '').toLowerCase().replace(/[\u09e6-\u09ef]/g, digit => String(digit.charCodeAt(0) - 0x09e6)).trim();
+		const makeId = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : `student-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+		const isSupabaseConfigured = () => Boolean(supabaseConfig.url && supabaseConfig.url !== 'https://YOUR_PROJECT_ID.supabase.co' && supabaseConfig.anonKey && supabaseConfig.anonKey !== 'YOUR_ANON_KEY');
+
+		const normalizeStudent = (student, index = 0) => ({
+			...student,
+			id: student.id || makeId(),
+			images: Array.isArray(student.images) ? student.images : [],
+			name: student.name || '',
+			age: student.age || '',
+			className: student.className || '',
+			address: student.address || '',
+			story: student.story || '',
+			donorName: student.donorName || '',
+			donorPhone: student.donorPhone || ''
+		});
+
+		async function initSupabase() {
+			if (!isSupabaseConfigured() || !window.supabase) return null;
+			if (!supabaseClient) {
+				supabaseClient = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
+			}
+			return supabaseClient;
+		}
+
+		function openDatabase() {
+			return new Promise((resolve, reject) => {
+				if (!window.indexedDB) {
+					reject(new Error('IndexedDB is not supported in this browser.'));
+					return;
+				}
+				const request = window.indexedDB.open(dbName, 2);
+				request.onupgradeneeded = event => {
+					const database = event.target.result;
+					if (!database.objectStoreNames.contains(dbStore)) {
+						database.createObjectStore(dbStore, { keyPath: 'id' });
+					}
+				};
+				request.onsuccess = () => {
+					db = request.result;
+					resolve();
+				};
+				request.onerror = () => reject(request.error);
+			});
+		}
+
+		function loadStudentsFromDb() {
+			return new Promise((resolve, reject) => {
+				if (!db) {
+					students = JSON.parse(localStorage.getItem(storageKey) || '[]').map(normalizeStudent);
+					resolve(students);
+					return;
+				}
+				const transaction = db.transaction(dbStore, 'readonly');
+				const store = transaction.objectStore(dbStore);
+				const request = store.getAll();
+				request.onsuccess = () => {
+					students = (request.result || []).map(normalizeStudent);
+					resolve(students);
+				};
+				request.onerror = () => reject(request.error);
+			});
+		}
+
+		async function saveToSupabase() {
+			const client = await initSupabase();
+			if (!client) return false;
+			try {
+				const payload = students.map(student => ({
+					id: student.id,
+					name: student.name,
+					age: student.age,
+					className: student.className,
+					address: student.address,
+					story: student.story,
+					donorName: student.donorName,
+					donorPhone: student.donorPhone,
+					images: student.images,
+					created_at: student.created_at || new Date().toISOString()
+				}));
+				const { error } = await client.from('students').upsert(payload, { onConflict: 'id' });
+				if (error) throw error;
+				return true;
+			} catch (error) {
+				console.error('Supabase save failed:', error);
+				return false;
+			}
+		}
+
+		async function loadFromSupabase() {
+			const client = await initSupabase();
+			if (!client) return false;
+			try {
+				const { data, error } = await client.from('students').select('*').order('created_at', { ascending: false });
+				if (error) throw error;
+				if (Array.isArray(data)) {
+					students = data.map(normalizeStudent);
+					return true;
+				}
+			} catch (error) {
+				console.error('Supabase load failed:', error);
+			}
+			return false;
+		}
+
+		async function deleteFromSupabase(id) {
+			const client = await initSupabase();
+			if (!client || !id) return false;
+			try {
+				const { error } = await client.from('students').delete().eq('id', id);
+				if (error) throw error;
+				return true;
+			} catch (error) {
+				console.error('Supabase delete failed:', error);
+				return false;
+			}
+		}
+
+		async function saveStudents() {
+			const fallback = () => {
+				try {
+					localStorage.setItem(storageKey, JSON.stringify(students));
+					return true;
+				} catch (error) {
+					console.error(error);
+					alert('Browser storage is full. Delete some data and try again.');
+					return false;
+				}
+			};
+
+			if (await saveToSupabase()) return true;
+
+			if (!db || !db.objectStoreNames.contains(dbStore)) {
+				await openDatabase();
+			}
+
+			try {
+				const transaction = db.transaction(dbStore, 'readwrite');
+				const store = transaction.objectStore(dbStore);
+				store.clear();
+				students.forEach(student => store.put(normalizeStudent(student)));
+				await new Promise((resolve, reject) => {
+					transaction.oncomplete = resolve;
+					transaction.onerror = () => reject(transaction.error);
+					transaction.onabort = () => reject(transaction.error || new Error('IndexedDB write aborted'));
+				});
+				return true;
+			} catch (error) {
+				console.error(error);
+				return fallback();
+			}
+		}
+
+		async function bootstrap() {
+			try {
+				await openDatabase();
+				const loadedFromSupabase = await loadFromSupabase();
+				if (!loadedFromSupabase) {
+					await loadStudentsFromDb();
+				}
+			} catch (error) {
+				console.error(error);
+				students = JSON.parse(localStorage.getItem(storageKey) || '[]').map(normalizeStudent);
+			}
+			render();
+		}
+
+		function render() {
+			count.textContent = `${students.length} ${students.length === 1 ? 'Student' : 'Students'}`;
+			if (!students.length) {
+				list.innerHTML = '<div class="empty">No student profiles have been added yet.<br>Use the form to create the first profile.</div>';
+				return;
+			}
+			const query = normalizeSearch(searchInput.value);
+			const matchingStudents = students.map((student, index) => ({ student, index })).filter(({ student }) => !query || [student.name, student.donorName, student.donorPhone].some(value => normalizeSearch(value).includes(query)));
+			if (!matchingStudents.length) {
+				list.innerHTML = '<div class="empty">No students match that name or phone number.</div>';
+				return;
+			}
+			list.innerHTML = matchingStudents.map(({ student, index }) => {
+				const images = (student.images || []).slice(0, 3);
+				const imageMarkup = images.length
+					? `<div class="gallery">${images.map((image, imageIndex) => `<img src="${escapeHtml(image)}" alt="${escapeHtml(student.name)} - Image ${imageIndex + 1}" onerror="this.remove()">`).join('')}</div>`
+					: '';
+				const donorMarkup = student.donorName
+					? `<div class="sponsor"><div class="sponsor-title">Sponsored By</div><p>${escapeHtml(student.donorName)}</p><a href="tel:${escapeHtml(student.donorPhone)}">${escapeHtml(student.donorPhone || 'Phone number not provided')}</a></div>`
+					: '<div class="sponsor pending"><div class="sponsor-title">Sponsor Needed</div><p>This student needs a donor to support their education.</p></div>';
+				return `<article class="student-card" data-student-index="${index}">${imageMarkup}<div class="card-body"><div class="card-top"><h3>${escapeHtml(student.name)}</h3><div class="card-actions"><button class="student-pdf" type="button" data-print="${index}">Download PDF</button><button class="student-pdf" type="button" data-edit="${index}">Edit</button><button class="delete" type="button" data-delete="${index}">Delete</button></div></div><div class="profile-content"><div class="profile-details"><div class="details"><div class="detail-row"><span>Age</span><strong>${escapeHtml(student.age || 'Not provided')}</strong></div><div class="detail-row"><span>Class</span><strong>${escapeHtml(student.className || student.classInfo || 'Not provided')}</strong></div><div class="detail-row"><span>Address</span><strong>${escapeHtml(student.address || 'Not provided')}</strong></div></div><p class="story">${escapeHtml(student.story || 'No additional details have been added for this student.')}</p></div><div class="photo-slot" aria-label="Standard photo space">PHOTO<span>35 x 45 mm</span></div></div>${donorMarkup}</div></article>`;
+			}).join('');
+		}
+		async function downloadStudentCardAsPDF(index) {
+			const card = document.querySelector(`[data-student-index="${index}"]`);
+			if (!card || !students[index]) return;
+			if (!window.html2canvas || !window.jspdf) {
+				alert('The PDF library did not load. Check your internet connection and try again.');
+				return;
+			}
+
+			const actionButtons = card.querySelectorAll('.student-pdf, .delete');
+			actionButtons.forEach(button => {
+				button.dataset.originalDisplay = button.style.display || '';
+				button.style.display = 'none';
+			});
+
+			try {
+				await document.fonts.ready;
+				const canvas = await html2canvas(card, {
+					scale: 3,
+					backgroundColor: '#fffdf9',
+					useCORS: true,
+					logging: false,
+					imageTimeout: 15000,
+					onclone: clonedDocument => {
+						const clonedCard = clonedDocument.querySelector(`[data-student-index="${index}"]`);
+						if (!clonedCard) return;
+						clonedCard.style.animation = 'none';
+						clonedCard.style.opacity = '1';
+						clonedCard.style.transform = 'none';
+					}
+				});
+				const { jsPDF } = window.jspdf;
+				const widthMm = card.offsetWidth * 0.264583;
+				const heightMm = card.offsetHeight * 0.264583;
+				const pdf = new jsPDF({
+					orientation: widthMm > heightMm ? 'landscape' : 'portrait',
+					unit: 'mm',
+					format: [widthMm, heightMm],
+					compress: true
+				});
+				const safeName = String(students[index].name || 'student').replace(/[^a-zA-Z0-9_\- ]/g, '').trim() || 'student';
+				pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, widthMm, heightMm, undefined, 'FAST');
+				pdf.save(`${safeName}_card.pdf`);
+			} catch (error) {
+				console.error(error);
+				alert('PDF download failed. Please try again.');
+			} finally {
+				actionButtons.forEach(button => {
+					button.style.display = button.dataset.originalDisplay || '';
+					delete button.dataset.originalDisplay;
+				});
+			}
+		}
+
+		searchInput.addEventListener('input', render);
+		window.addEventListener('afterprint', () => {
+			document.body.classList.remove('print-single');
+			document.querySelectorAll('.print-target').forEach(card => card.classList.remove('print-target'));
+		});
+
+		form.addEventListener('submit', async event => {
+			event.preventDefault();
+			const data = new FormData(form);
+
+			const studentId = editingIndex !== null && students[editingIndex] ? students[editingIndex].id : null;
+			const updatedStudent = normalizeStudent({
+				id: studentId || makeId(),
+				name: data.get('name').trim(),
+				images: editingIndex !== null ? students[editingIndex].images : [],
+				age: data.get('age').trim(),
+				className: data.get('className').trim(),
+				address: data.get('address').trim(),
+				story: data.get('story').trim(),
+				donorName: data.get('donorName').trim(),
+				donorPhone: data.get('donorPhone').trim(),
+				created_at: new Date().toISOString()
+			});
+
+			const previousStudents = students.slice();
+			if (editingIndex === null) students.unshift(updatedStudent);
+			else students[editingIndex] = updatedStudent;
+
+			if (!(await saveStudents())) {
+				students = previousStudents;
+				return;
+			}
+
+			resetForm();
+			render();
+		});
+		function resetForm() {
+			editingIndex = null;
+			form.reset();
+			document.querySelector('#formTitle').textContent = 'Add New Student';
+			document.querySelector('#saveButton').textContent = 'Save Student';
+			document.querySelector('#cancelEdit').style.display = 'none';
+		}
+		function startEdit(index) {
+			const student = students[index];
+			editingIndex = index;
+			form.elements.name.value = student.name || '';
+			form.elements.age.value = student.age || '';
+			form.elements.className.value = student.className || student.classInfo || '';
+			form.elements.address.value = student.address || '';
+			form.elements.story.value = student.story || '';
+			form.elements.donorName.value = student.donorName || '';
+			form.elements.donorPhone.value = student.donorPhone || '';
+			document.querySelector('#formTitle').textContent = 'Edit Student';
+			document.querySelector('#saveButton').textContent = 'Save Changes';
+			document.querySelector('#cancelEdit').style.display = 'block';
+			form.elements.name.focus();
+		}
+		document.querySelector('#cancelEdit').addEventListener('click', resetForm);
+		list.addEventListener('click', async event => {
+			const printButton = event.target.closest('[data-print]');
+			if (printButton) {
+				downloadStudentCardAsPDF(Number(printButton.dataset.print));
+				return;
+			}
+			const editButton = event.target.closest('[data-edit]');
+			if (editButton) {
+				startEdit(Number(editButton.dataset.edit));
+				return;
+			}
+			const button = event.target.closest('[data-delete]');
+			if (!button) return;
+			const deleteIndex = Number(button.dataset.delete);
+			const studentId = students[deleteIndex]?.id;
+			students.splice(deleteIndex, 1);
+			if (studentId && !(await deleteFromSupabase(studentId)) && !(await saveStudents())) {
+				students = students.slice();
+				return;
+			}
+			if (!studentId && !(await saveStudents())) {
+				students = students.slice();
+				return;
+			}
+			render();
+		});
+		document.querySelector('#clearData').addEventListener('click', async () => {
+			if (!students.length || confirm('Delete all student data?')) {
+				const currentIds = students.map(student => student.id);
+				students = [];
+				if (currentIds.length && await initSupabase()) {
+					await supabaseClient.from('students').delete().in('id', currentIds);
+				}
+				if (db) {
+					const transaction = db.transaction(dbStore, 'readwrite');
+					transaction.objectStore(dbStore).clear();
+				}
+				try {
+					localStorage.removeItem(storageKey);
+				} catch (error) {
+					console.warn('Local storage clear skipped.', error);
+				}
+				render();
+			}
+		});
+		bootstrap();
+	</script>
+</body>
+</html>
